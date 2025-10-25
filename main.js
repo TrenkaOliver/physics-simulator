@@ -1,4 +1,4 @@
-import init, {World, Square} from "./pkg/physics_simulator.js"
+import init, {World, Square, Force} from "./pkg/physics_simulator.js"
 
 const window_width = window.innerWidth;
 const window_height = window.innerHeight;
@@ -12,13 +12,15 @@ async function start() {
     canvas.width = window_width;
     canvas.height = window_height;
 
-    world = new World();
+    world = new World(performance.now());
+    world.add_force(new Force("gravity", 0, 2));
     context.fillStyle = "#128493ff";
     requestAnimationFrame(render);
 }
 
 function render() {
     context.clearRect(0, 0, window_width, window_height);
+    world.update(performance.now());
 
     const props = world.get_square_props();
     for (let index = 0; index < props.length; index += 3) {
@@ -26,7 +28,7 @@ function render() {
         const y = props[index + 1];
         const size = props[index + 2];
 
-        context.fillRect(x, y, size, size);        
+        context.fillRect(x, y, size, size);
     }
 
     requestAnimationFrame(render);
@@ -37,8 +39,16 @@ canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left - size / 2;
         const y = e.clientY - rect.top - size  / 2;
-        world.add_square(new Square("new square", x, y, size, 10));
+        world.add_square(new Square("new square", false, x, y, size, 10));
     }
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top - size  / 2;
+    world.add_square(new Square("new square", true, x, y, size, 10));
 });
 
 start();
