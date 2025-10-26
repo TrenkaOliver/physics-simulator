@@ -24,12 +24,6 @@ impl Square {
     pub fn new(name: String, is_fixed: bool, x: f32, y: f32, size: f32, mass: f32) -> Square {
         Square {name, is_fixed, x, y, size, mass, x_vel:0.0, y_vel:0.0, x_acc:0.0, y_acc:0.0 }
     }
-
-    fn does_contain(&self, other: &Square) -> bool {
-        let overlap_x = self.x < other.x + other.size && self.x + self.size > other.x;
-        let overlap_y = self.y < other.y + other.size && self.y + self.size > other.y;
-        overlap_x && overlap_y        
-    }
 }
 
 #[wasm_bindgen]
