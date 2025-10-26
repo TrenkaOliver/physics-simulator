@@ -4,16 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Physics Simulator</title>
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-    </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <canvas></canvas>
+    <div class="container">
+        <canvas class="canvas"></canvas>
+        <div class="panel">
+            <h1>Physics Sandbox</h1>
+            <div class="forces">
+                <h2>Forces</h2>
+                <div id="force-container">
+
+                </div>
+            </div>
+        </div>
+    </div>
     <script type="module" src="./main.js"></script>
 </body>
 </html> 

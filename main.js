@@ -1,26 +1,31 @@
 import init, {World, Square, Force} from "./pkg/physics_simulator.js"
 
-const window_width = window.innerWidth;
-const window_height = window.innerHeight;
-const size = window_height / 15;
+const color = "#43c5bcff";
+
+let size;
 let canvas = document.querySelector("canvas");
 let context = canvas.getContext("2d");
 let world;
 
 async function start() {
     await init();
-    canvas.width = window_width;
-    canvas.height = window_height;
+
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;  
+    canvas.height = rect.height;
+
+    size = canvas.height / 15;
 
     world = new World(performance.now(), canvas.width, canvas.height);
-    world.add_force(new Force("vertical", 0, 0.1));
-    world.add_force(new Force("horizontal", 0, 0.1));
-    context.fillStyle = "#128493ff";
+    world.add_force(new Force("only", 0, 0));
+    display_forces();
+
+    context.fillStyle = color;
     requestAnimationFrame(render);
 }
 
 function render() {
-    context.clearRect(0, 0, window_width, window_height);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     world.update(performance.now());
 
     const props = world.get_square_props();
@@ -33,7 +38,58 @@ function render() {
     }
 
     requestAnimationFrame(render);
-} 
+}
+
+function display_forces() {
+    const forces = world.get_global_forces();
+    const container = document.getElementById("force-container");
+    container.innerHTML = "";
+
+    for (let i = 0; i < forces.length; i++) {
+        const f = forces[i];
+        
+        //container
+        const inner_container = document.createElement("div");
+        inner_container.className = "force-input";
+
+        //force name
+        const nameLabel = document.createElement("span");
+        nameLabel.textContent = f.name + ": "; // Show the force name
+        nameLabel.style.fontWeight = "bold";  // optional styling
+        inner_container.appendChild(nameLabel);
+
+        //x input
+        const xLabel = document.createElement("label");
+        xLabel.textContent = "X: ";
+        const xInput = document.createElement("input");
+        xInput.type = "number";
+        xInput.className = "x-input";
+        xInput.value = f.x.toFixed(2);
+        xInput.step = "0.01";
+        xLabel.appendChild(xInput);
+        xInput.addEventListener("input", (e) => {
+            world.change_force_x(i, e.target.value);
+        });
+
+        //y input
+        const yLabel = document.createElement("label");
+        yLabel.textContent = "Y: ";
+        const yInput = document.createElement("input");
+        yInput.type = "number";
+        yInput.className = "y-input";
+        yInput.value = f.y.toFixed(2);
+        yInput.step = "0.01";
+        yLabel.appendChild(yInput);
+        yInput.addEventListener("input", (e) => {
+            world.change_force_y(i, e.target.value);
+        });
+
+        inner_container.appendChild(xLabel);
+        inner_container.appendChild(yLabel);
+
+        container.appendChild(inner_container);
+    }
+}
 
 canvas.addEventListener('click', (e) => {
     if (e.button === 0) {
@@ -42,6 +98,8 @@ canvas.addEventListener('click', (e) => {
         const y = e.clientY - rect.top - size  / 2;
         world.add_square("new square", false, x, y, size, 10);
     }
+
+    console.log("alma");
 });
 
 canvas.addEventListener('contextmenu', (e) => {
@@ -50,6 +108,13 @@ canvas.addEventListener('contextmenu', (e) => {
     const x = e.clientX - rect.left - size / 2;
     const y = e.clientY - rect.top - size  / 2;
     world.add_square("new square", true, x, y, size, 10);
+});
+
+window.addEventListener('resize', () => {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    context.fillStyle = color;
 });
 
 start();

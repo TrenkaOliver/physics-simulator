@@ -27,6 +27,7 @@ impl Square {
 }
 
 #[wasm_bindgen]
+#[derive(Clone)]
 pub struct Force {
     name: String,
     x: f32,
@@ -38,6 +39,21 @@ impl Force {
     #[wasm_bindgen(constructor)]
     pub fn new(name: String, x: f32, y: f32) -> Force {
         Force { name, x, y }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn y(&self) -> f32 {
+        self.y
     }
 }
 
@@ -89,81 +105,134 @@ impl World {
     }
 
     #[wasm_bindgen]
+    pub fn get_global_forces(&self) -> Vec<Force> {
+        self.forces.clone()
+    }
+
+    #[wasm_bindgen]
+    pub fn change_force_x(&mut self, index: usize, x: f32) {
+        self.forces[index].x = x;
+    }
+
+    #[wasm_bindgen]
+    pub fn change_force_y(&mut self, index: usize, y: f32) {
+        self.forces[index].y = y;
+    }
+
+    #[wasm_bindgen]
     pub fn update(&mut self, time: f64) {
-        //calculate delta time
         let dt = (time - self.last_update) as f32;
         self.last_update = time;
 
-        // Update acceleration
+        // Update acceleration for non-fixed squares
         for s in self.squares.iter_mut().filter(|s| !s.is_fixed) {
             s.x_acc = self.forces.iter().map(|f| f.x).sum::<f32>() / s.mass;
             s.y_acc = self.forces.iter().map(|f| f.y).sum::<f32>() / s.mass;
         }
 
-        //Collision detection & positioning
         let sqr_len = self.squares.len();
+
         for i in 0..sqr_len {
-            let a = &self.squares[i];
-            if a.is_fixed { continue; } //if a is fixed there's no need to calculate its new position
+            // Split the slice to avoid Rust borrowing issues
+            let (left, right) = self.squares.split_at_mut(i);
+            let (a, right) = right.split_first_mut().unwrap(); // a = self.squares[i]
 
-            let mut after_collision = None;
+            if a.is_fixed { continue; }
 
-            //calculate posiotions when there's no collision
-            let no_collision_x = a.x + a.x_vel * dt + 0.5 * a.x_acc * dt.powi(2);
-            let no_collision_y = a.y + a.y_vel * dt + 0.5 * a.y_acc * dt.powi(2);
+            // Predict next position
+            let mut future_x = a.x + a.x_vel * dt + 0.5 * a.x_acc * dt.powi(2);
+            let mut future_y = a.y + a.y_vel * dt + 0.5 * a.y_acc * dt.powi(2);
 
+            let mut iterations = 0;
+            loop {
+                if iterations > 5 { break; } // prevent infinite loops in dense clusters
+                iterations += 1;
 
-            for j in 0..sqr_len {
-                if j >= i {continue;}
-                let b = &self.squares[j];
+                let mut collision_found = false;
 
-                //calculate the edges of both square
-                let a_left_bound = a.x;
-                let a_right_bound = a.x + a.size;
-                let a_top_bound = a.y;
-                let a_bottom_bound = a.y + a.size;
-                
-                let b_left_bound = b.x;
-                let b_right_bound = b.x + b.size;
-                let b_top_bound = b.y;
-                let b_bottom_bound = b.y + b.size;
-                
-                //calculate overlapping
-                let x_overlap = (a_right_bound.min(b_right_bound) - a_left_bound.max(b_left_bound)).max(0.0);
-                let y_overlap = (a_bottom_bound.min(b_bottom_bound) - a_top_bound.max(b_top_bound)).max(0.0);
+                // Check against left part of the slice
+                for b in left.iter() {
+                    let b_left = b.x;
+                    let b_right = b.x + b.size;
+                    let b_top = b.y;
+                    let b_bottom = b.y + b.size;
 
-                //if overlapping is 0 (bc of .max(0.0)) that means there were no collision
-                if x_overlap > 0.0 && y_overlap > 0.0 {
-                    if x_overlap < y_overlap {
-                        if a.x < b.x {
-                            after_collision = Some((b_left_bound - a.size, no_collision_y));
+                    let a_left = future_x;
+                    let a_right = future_x + a.size;
+                    let a_top = future_y;
+                    let a_bottom = future_y + a.size;
+
+                    let x_overlap = (a_right.min(b_right) - a_left.max(b_left)).max(0.0);
+                    let y_overlap = (a_bottom.min(b_bottom) - a_top.max(b_top)).max(0.0);
+
+                    if x_overlap > 0.0 && y_overlap > 0.0 {
+                        collision_found = true;
+
+                        if x_overlap < y_overlap {
+                            if a_left < b_left {
+                                future_x = b_left - a.size;
+                            } else {
+                                future_x = b_right;
+                            }
+                            a.x_vel = 0.0;
                         } else {
-                            after_collision = Some((b_right_bound, no_collision_y));
-                        }
-                    } else {
-                        if a.y < b.y {
-                            after_collision = Some((no_collision_x, b_top_bound - a.size));
-                        } else {
-                            after_collision = Some((no_collision_x, b_bottom_bound));
+                            if a_top < b_top {
+                                future_y = b_top - a.size;
+                            } else {
+                                future_y = b_bottom;
+                            }
+                            a.y_vel = 0.0;
                         }
                     }
                 }
+
+                // Check against right part of the slice
+                for b in right.iter() {
+                    let b_left = b.x;
+                    let b_right = b.x + b.size;
+                    let b_top = b.y;
+                    let b_bottom = b.y + b.size;
+
+                    let a_left = future_x;
+                    let a_right = future_x + a.size;
+                    let a_top = future_y;
+                    let a_bottom = future_y + a.size;
+
+                    let x_overlap = (a_right.min(b_right) - a_left.max(b_left)).max(0.0);
+                    let y_overlap = (a_bottom.min(b_bottom) - a_top.max(b_top)).max(0.0);
+
+                    if x_overlap > 0.0 && y_overlap > 0.0 {
+                        collision_found = true;
+
+                        if x_overlap < y_overlap {
+                            if a_left < b_left {
+                                future_x = b_left - a.size;
+                            } else {
+                                future_x = b_right;
+                            }
+                            a.x_vel = 0.0;
+                        } else {
+                            if a_top < b_top {
+                                future_y = b_top - a.size;
+                            } else {
+                                future_y = b_bottom;
+                            }
+                            a.y_vel = 0.0;
+                        }
+                    }
+                }
+
+                if !collision_found { break; }
             }
 
-            let a = &mut self.squares[i];
-            if let Some(coordinates) = after_collision {
-                (a.x, a.y) = coordinates;
-                (a.x_vel, a.y_vel, a.x_acc, a.y_acc) = (0.0, 0.0, 0.0, 0.0);
-                a.is_fixed = true;
-                
-            } else {
-                (a.x, a.y) = (no_collision_x, no_collision_y);                
-                a.x_vel += a.x_acc * dt;
-                a.y_vel += a.y_acc * dt;
-            }
+            // Apply final position and update velocity
+            a.x = future_x;
+            a.y = future_y;
+            a.x_vel += a.x_acc * dt;
+            a.y_vel += a.y_acc * dt;
         }
 
-        //remove invisible objects from the simulation
+        // Remove invisible squares
         self.squares.retain(|s| 
             s.x + s.size >= 0.0 &&
             s.y + s.size >= 0.0 &&
@@ -171,5 +240,6 @@ impl World {
             s.y <= self.y_max
         );
     }
+
     
 }
