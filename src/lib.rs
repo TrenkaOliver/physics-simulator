@@ -45,21 +45,35 @@ impl Force {
 pub struct World {
     squares: Vec<Square>,
     forces: Vec<Force>,
-    last_update: f64
+    last_update: f64,
+    x_max: f32,
+    y_max: f32
 }
 
 #[wasm_bindgen] 
 impl World {
     #[wasm_bindgen(constructor)]
-    pub fn new(time: f64) -> World {
+    pub fn new(time: f64, canvas_width: f32, canvas_height: f32) -> World {
         
-        World { squares: Vec::new(), forces: Vec::new(), last_update: time }
+        World { squares: Vec::new(), forces: Vec::new(), last_update: time, x_max: canvas_width, y_max: canvas_height }
     }
 
     #[wasm_bindgen]
-    pub fn add_square(&mut self, square: Square) {
-        self.squares.push(square);
+    pub fn add_square(&mut self, name: &str, is_fixed: bool, x: f32, y: f32, size: f32, mass: f32) {
+        // Check for overlap with any existing square
+        for s in &self.squares {
+            let overlap_x = x < s.x + s.size && x + size > s.x;
+            let overlap_y = y < s.y + s.size && y + size > s.y;
+            if overlap_x && overlap_y {
+                console::log_1(&"Skipped adding square: would overlap existing square".into());
+                return;
+            }
+        }
+
+        console::log_1(&format!("Added {} square at ({}, {})", if is_fixed { "fixed" } else { "moving" }, x, y).into());
+        self.squares.push(Square::new(name.to_string(), is_fixed, x, y, size, mass));
     }
+
 
     #[wasm_bindgen]
     pub fn add_force(&mut self, force: Force) {
@@ -112,15 +126,31 @@ impl World {
                 let b_top_bound = b.y;
                 let b_bottom_bound = b.y + b.size;
                 
-                //when only moves on the y axis
-                if a_bottom_bound <= b_top_bound
-                    && no_collision_y + a.size >= b_top_bound
-                    && a_right_bound >= b_left_bound
-                    && b_right_bound >= a_left_bound 
-                {
-                    after_collision = Some((a.x, b.y - b.size));
-                    break;
+                if no_collision_x != a.x && no_collision_y != a.y { //moves on both axis
+                    
+                } else if no_collision_y != a.y { //moves only on the y axis
+                    if a_right_bound >= b_left_bound && b_right_bound >= a_left_bound { //collision can happen
+                        if a_bottom_bound <= b_top_bound && no_collision_y + a.size >= b_top_bound { //a went below b
+                            after_collision = Some((a.x, b.y - b.size));
+                            break;
+                        } else if a_top_bound >= b_bottom_bound && no_collision_y <= b_bottom_bound { //a went above b
+                            after_collision = Some((a.x, b_bottom_bound));
+                            break;
+                        }
+                    }
+                } else if (no_collision_x - a.x).abs() > 1e-6 { // moves only on the x exis
+                    if a_bottom_bound >= b_top_bound && a_top_bound <= b_bottom_bound { //collision can happen (height range check)
+                        if a_right_bound <= b_left_bound && no_collision_x + a.size >= b_left_bound { //a went from right through b
+                            after_collision = Some((b.x - b.size, a.y));
+                            break;
+                        } else if a_left_bound >= b_right_bound && no_collision_x <= b_right_bound { //a went from left through b
+                            after_collision = Some((b_right_bound, a.y));
+                            break;
+                        }
+                    }
                 }
+
+                //no collision => don't have to do anything with it
             }
             let a = &mut self.squares[i];
             if let Some(coordinates) = after_collision {
@@ -133,7 +163,14 @@ impl World {
                 a.x_vel += a.x_acc * dt;
                 a.y_vel += a.y_acc * dt;
             }
-
         }
+
+        self.squares.retain(|s| 
+            s.x + s.size >= 0.0 &&
+            s.y + s.size >= 0.0 &&
+            s.x <= self.x_max &&
+            s.y <= self.y_max
+        );
     }
+    
 }

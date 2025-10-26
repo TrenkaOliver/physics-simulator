@@ -12,8 +12,9 @@ async function start() {
     canvas.width = window_width;
     canvas.height = window_height;
 
-    world = new World(performance.now());
-    world.add_force(new Force("gravity", 0, 2));
+    world = new World(performance.now(), canvas.width, canvas.height);
+    world.add_force(new Force("vertical", 0, 0.1));
+    //world.add_force(new Force("horizontal", 0.05, 0));
     context.fillStyle = "#128493ff";
     requestAnimationFrame(render);
 }
@@ -39,7 +40,7 @@ canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left - size / 2;
         const y = e.clientY - rect.top - size  / 2;
-        world.add_square(new Square("new square", false, x, y, size, 10));
+        world.add_square("new square", false, x, y, size, 10);
     }
 });
 
@@ -48,7 +49,7 @@ canvas.addEventListener('contextmenu', (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left - size / 2;
     const y = e.clientY - rect.top - size  / 2;
-    world.add_square(new Square("new square", true, x, y, size, 10));
+    world.add_square("new square", true, x, y, size, 10);
 });
 
 start();
