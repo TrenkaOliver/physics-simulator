@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
@@ -107,6 +105,11 @@ impl World {
     #[wasm_bindgen]
     pub fn get_global_forces(&self) -> Vec<Force> {
         self.forces.clone()
+    }
+
+    #[wasm_bindgen]
+    pub fn change_force_title(&mut self, index: usize, title: String) {
+        self.forces[index].name = title;
     }
 
     #[wasm_bindgen]

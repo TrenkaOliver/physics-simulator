@@ -4,6 +4,7 @@ const color = "#43c5bcff";
 
 let size;
 let canvas = document.querySelector("canvas");
+let add_force_button = document.getElementById("add-force");
 let context = canvas.getContext("2d");
 let world;
 
@@ -53,10 +54,14 @@ function display_forces() {
         inner_container.className = "force-input";
 
         //force name
-        const nameLabel = document.createElement("span");
-        nameLabel.textContent = f.name + ": "; // Show the force name
-        nameLabel.style.fontWeight = "bold";  // optional styling
-        inner_container.appendChild(nameLabel);
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "name-input";
+        nameInput.value = f.name;
+        inner_container.appendChild(nameInput);
+        nameInput.addEventListener("input", (e) => {
+            world.change_force_title(i, e.target.value);
+        });
 
         //x input
         const xLabel = document.createElement("label");
@@ -115,6 +120,11 @@ window.addEventListener('resize', () => {
     canvas.width = rect.width;
     canvas.height = rect.height;
     context.fillStyle = color;
+});
+
+add_force_button.addEventListener('click', () => {
+    world.add_force(new Force("untitled", 0, 0));
+    display_forces();
 });
 
 start();
