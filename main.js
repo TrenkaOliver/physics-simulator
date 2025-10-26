@@ -14,7 +14,7 @@ async function start() {
 
     world = new World(performance.now(), canvas.width, canvas.height);
     world.add_force(new Force("vertical", 0, 0.1));
-    //world.add_force(new Force("horizontal", 0.05, 0));
+    world.add_force(new Force("horizontal", 0, 0.1));
     context.fillStyle = "#128493ff";
     requestAnimationFrame(render);
 }

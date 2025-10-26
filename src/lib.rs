@@ -24,6 +24,12 @@ impl Square {
     pub fn new(name: String, is_fixed: bool, x: f32, y: f32, size: f32, mass: f32) -> Square {
         Square {name, is_fixed, x, y, size, mass, x_vel:0.0, y_vel:0.0, x_acc:0.0, y_acc:0.0 }
     }
+
+    fn does_contain(&self, other: &Square) -> bool {
+        let overlap_x = self.x < other.x + other.size && self.x + self.size > other.x;
+        let overlap_y = self.y < other.y + other.size && self.y + self.size > other.y;
+        overlap_x && overlap_y        
+    }
 }
 
 #[wasm_bindgen]
@@ -65,12 +71,9 @@ impl World {
             let overlap_x = x < s.x + s.size && x + size > s.x;
             let overlap_y = y < s.y + s.size && y + size > s.y;
             if overlap_x && overlap_y {
-                console::log_1(&"Skipped adding square: would overlap existing square".into());
                 return;
             }
         }
-
-        console::log_1(&format!("Added {} square at ({}, {})", if is_fixed { "fixed" } else { "moving" }, x, y).into());
         self.squares.push(Square::new(name.to_string(), is_fixed, x, y, size, mass));
     }
 
@@ -93,10 +96,11 @@ impl World {
 
     #[wasm_bindgen]
     pub fn update(&mut self, time: f64) {
+        //calculate delta time
         let dt = (time - self.last_update) as f32;
         self.last_update = time;
 
-        // Updateacceleration
+        // Update acceleration
         for s in self.squares.iter_mut().filter(|s| !s.is_fixed) {
             s.x_acc = self.forces.iter().map(|f| f.x).sum::<f32>() / s.mass;
             s.y_acc = self.forces.iter().map(|f| f.y).sum::<f32>() / s.mass;
@@ -106,8 +110,11 @@ impl World {
         let sqr_len = self.squares.len();
         for i in 0..sqr_len {
             let a = &self.squares[i];
-            if a.is_fixed { continue; }
+            if a.is_fixed { continue; } //if a is fixed there's no need to calculate its new position
+
             let mut after_collision = None;
+
+            //calculate posiotions when there's no collision
             let no_collision_x = a.x + a.x_vel * dt + 0.5 * a.x_acc * dt.powi(2);
             let no_collision_y = a.y + a.y_vel * dt + 0.5 * a.y_acc * dt.powi(2);
 
@@ -116,6 +123,7 @@ impl World {
                 if j >= i {continue;}
                 let b = &self.squares[j];
 
+                //calculate the edges of both square
                 let a_left_bound = a.x;
                 let a_right_bound = a.x + a.size;
                 let a_top_bound = a.y;
@@ -126,36 +134,32 @@ impl World {
                 let b_top_bound = b.y;
                 let b_bottom_bound = b.y + b.size;
                 
-                if no_collision_x != a.x && no_collision_y != a.y { //moves on both axis
-                    
-                } else if no_collision_y != a.y { //moves only on the y axis
-                    if a_right_bound >= b_left_bound && b_right_bound >= a_left_bound { //collision can happen
-                        if a_bottom_bound <= b_top_bound && no_collision_y + a.size >= b_top_bound { //a went below b
-                            after_collision = Some((a.x, b.y - b.size));
-                            break;
-                        } else if a_top_bound >= b_bottom_bound && no_collision_y <= b_bottom_bound { //a went above b
-                            after_collision = Some((a.x, b_bottom_bound));
-                            break;
+                //calculate overlapping
+                let x_overlap = (a_right_bound.min(b_right_bound) - a_left_bound.max(b_left_bound)).max(0.0);
+                let y_overlap = (a_bottom_bound.min(b_bottom_bound) - a_top_bound.max(b_top_bound)).max(0.0);
+
+                //if overlapping is 0 (bc of .max(0.0)) that means there were no collision
+                if x_overlap > 0.0 && y_overlap > 0.0 {
+                    if x_overlap < y_overlap {
+                        if a.x < b.x {
+                            after_collision = Some((b_left_bound - a.size, no_collision_y));
+                        } else {
+                            after_collision = Some((b_right_bound, no_collision_y));
                         }
-                    }
-                } else if (no_collision_x - a.x).abs() > 1e-6 { // moves only on the x exis
-                    if a_bottom_bound >= b_top_bound && a_top_bound <= b_bottom_bound { //collision can happen (height range check)
-                        if a_right_bound <= b_left_bound && no_collision_x + a.size >= b_left_bound { //a went from right through b
-                            after_collision = Some((b.x - b.size, a.y));
-                            break;
-                        } else if a_left_bound >= b_right_bound && no_collision_x <= b_right_bound { //a went from left through b
-                            after_collision = Some((b_right_bound, a.y));
-                            break;
+                    } else {
+                        if a.y < b.y {
+                            after_collision = Some((no_collision_x, b_top_bound - a.size));
+                        } else {
+                            after_collision = Some((no_collision_x, b_bottom_bound));
                         }
                     }
                 }
-
-                //no collision => don't have to do anything with it
             }
+
             let a = &mut self.squares[i];
             if let Some(coordinates) = after_collision {
                 (a.x, a.y) = coordinates;
-                (a.x_vel, a.y_vel) = (0.0, 0.0);
+                (a.x_vel, a.y_vel, a.x_acc, a.y_acc) = (0.0, 0.0, 0.0, 0.0);
                 a.is_fixed = true;
                 
             } else {
@@ -165,6 +169,7 @@ impl World {
             }
         }
 
+        //remove invisible objects from the simulation
         self.squares.retain(|s| 
             s.x + s.size >= 0.0 &&
             s.y + s.size >= 0.0 &&
