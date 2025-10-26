@@ -135,6 +135,7 @@ impl World {
 
         let sqr_len = self.squares.len();
 
+        //handle collision
         for i in 0..sqr_len {
             // Split the slice to avoid Rust borrowing issues
             let (left, right) = self.squares.split_at_mut(i);

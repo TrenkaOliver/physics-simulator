@@ -5,6 +5,7 @@ const color = "#43c5bcff";
 let size;
 let canvas = document.querySelector("canvas");
 let add_force_button = document.getElementById("add-force");
+let add_object_button = document.getElementById("add-object");
 let context = canvas.getContext("2d");
 let world;
 
@@ -96,24 +97,24 @@ function display_forces() {
     }
 }
 
-canvas.addEventListener('click', (e) => {
-    if (e.button === 0) {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left - size / 2;
-        const y = e.clientY - rect.top - size  / 2;
-        world.add_square("new square", false, x, y, size, 10);
-    }
+// canvas.addEventListener('click', (e) => {
+//     if (e.button === 0) {
+//         const rect = canvas.getBoundingClientRect();
+//         const x = e.clientX - rect.left - size / 2;
+//         const y = e.clientY - rect.top - size  / 2;
+//         world.add_square("new square", false, x, y, size, 10);
+//     }
 
-    console.log("alma");
-});
+//     console.log("alma");
+// });
 
-canvas.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - size / 2;
-    const y = e.clientY - rect.top - size  / 2;
-    world.add_square("new square", true, x, y, size, 10);
-});
+// canvas.addEventListener('contextmenu', (e) => {
+//     e.preventDefault();
+//     const rect = canvas.getBoundingClientRect();
+//     const x = e.clientX - rect.left - size / 2;
+//     const y = e.clientY - rect.top - size  / 2;
+//     world.add_square("new square", true, x, y, size, 10);
+// });
 
 window.addEventListener('resize', () => {
     const rect = canvas.getBoundingClientRect();
@@ -126,5 +127,9 @@ add_force_button.addEventListener('click', () => {
     world.add_force(new Force("untitled", 0, 0));
     display_forces();
 });
+
+add_object_button.addEventListener('click', () => {
+    
+})
 
 start();
